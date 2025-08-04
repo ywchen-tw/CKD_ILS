@@ -110,6 +110,7 @@ def gaussian(x, mu, sig):
 
 def test_manual_pt_vmr(wv1abs=762.0,
                        wv2abs=778.0, 
+                       slit=None,
                        sigma=3.82):
     
     
@@ -142,15 +143,19 @@ def test_manual_pt_vmr(wv1abs=762.0,
     wv2abs = wv2abs
     mean_wvl = 0.5 * (wv1abs + wv2abs)
     slit_wvl = np.arange(wv1abs, wv2abs+1e-7, 0.1)
-    slit_response = np.ones_like(slit_wvl)
+    if slit is None: 
+        slit_response = np.ones_like(slit_wvl)
+    else:
+        ### Create a Gaussian slit response
 
-    # ssfr_slit_vis_file = "/Users/yuch8913/programming/er3t/er3t/er3t/data/slit/ssfr/vis_0.1nm_s.dat"
-    # slit_data = sckd.read_dat(ssfr_slit_vis_file)
-    # slit_response = np.interp(slit_wvl-mean_wvl, slit_data[:, 0], slit_data[:, 1])
-    
-    xx = np.linspace(-12, 12, 241)
-    slit_data = gaussian(xx, 0, sig=sigma)
-    slit_response = np.interp(slit_wvl-mean_wvl, xx, slit_data)
+        # ssfr_slit_vis_file = "/Users/yuch8913/programming/er3t/er3t/er3t/data/slit/ssfr/vis_0.1nm_s.dat"
+        # slit_data = sckd.read_dat(ssfr_slit_vis_file)
+        # slit_response = np.interp(slit_wvl-mean_wvl, slit_data[:, 0], slit_data[:, 1])
+        
+        half_wvl_range = (wv2abs - wv1abs) / 2.0
+        xx = np.arange(-half_wvl_range, half_wvl_range+0.001, 0.5)
+        slit_data = gaussian(xx, 0, sig=sigma)
+        slit_response = np.interp(slit_wvl-mean_wvl, xx, slit_data)
 
     if 1:#not os.path.exists('tmp_abs.pkl'):
         nu_final, cont_tau_final, lbl_tau_final, \
@@ -293,6 +298,7 @@ if __name__ == "__main__":
     # main()
     
     # test_er3t_atm()
-    test_manual_pt_vmr(wv1abs=762.0, wv2abs=778.0, sigma=3.82)
-    test_manual_pt_vmr(wv1abs=1600.0, wv2abs=2100.0, sigma=50)
-    test_manual_pt_vmr(wv1abs=1600.0, wv2abs=2100.0, sigma=200)
+    test_manual_pt_vmr(wv1abs=762.0, wv2abs=778.0, slit=True, sigma=3.82)
+    test_manual_pt_vmr(wv1abs=1600.0, wv2abs=2100.0, slit=True, sigma=50)
+    test_manual_pt_vmr(wv1abs=1600.0, wv2abs=2100.0, slit=True, sigma=200)
+    test_manual_pt_vmr(wv1abs=1600.0, wv2abs=2100.0, slit=False)
