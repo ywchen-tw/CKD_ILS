@@ -34,13 +34,16 @@ def test_er3t_atm():
     
     x_vmr_h2o = h2o_lay/air_lay
     x_vmr_o2  = o2_lay/air_lay
-    x_vmr_n2  = n2_lay/air_lay
     x_vmr_co2 = co2_lay/air_lay
     x_vmr_no2 = no2_lay/air_lay
     x_vmr_ch4 = np.zeros_like(o2_lay)  # Assuming no CH4 in this case
     if 'ch4' in atm0.lay:
         x_vmr_ch4 = atm0.lay['ch4']['data']/air_lay
+    if 'n2o' in atm0.lay:
+        x_vmr_n2o = atm0.lay['n2o']['data']/air_lay
     x_vmr_o3  = o3_lay/air_lay
+    
+    x_vmr_n2  = 1 - x_vmr_h2o - x_vmr_o2 - x_vmr_co2 - x_vmr_no2 - x_vmr_n2o - x_vmr_ch4 - x_vmr_o3
         
 
     wv1abs = 762.0
@@ -100,7 +103,14 @@ def test_er3t_atm():
     plt.show()
     
 
-def test_manual_pt_vmr():
+def gaussian(x, mu, sig):
+    return (
+        1.0 / (np.sqrt(2.0 * np.pi) * sig) * np.exp(-np.power((x - mu) / sig, 2.0) / 2)
+    )
+
+def test_manual_pt_vmr(wv1abs=762.0,
+                       wv2abs=778.0, 
+                       sigma=3.82):
     
     
     
@@ -120,21 +130,27 @@ def test_manual_pt_vmr():
     x_vmr_o2  = 0.2195
     x_vmr_co2 = 420.0e-6 # 420 ppm
     x_vmr_no2 = 1.0e-9 # 1 ppb
+    x_vmr_n2o = 330.0e-9 # 330 ppb
     x_vmr_ch4 = 1.93e-6 # 1.93 ppm
     x_vmr_o3  = 50.0e-9 # 50 ppb
-    x_vmr_n2  = 1.0 - x_vmr_h2o - x_vmr_o2 - x_vmr_co2 - x_vmr_no2 - x_vmr_ch4 - x_vmr_o3
+    x_vmr_n2  = 1.0 - x_vmr_h2o - x_vmr_o2 - x_vmr_co2 - x_vmr_no2 - x_vmr_n2o - x_vmr_ch4 - x_vmr_o3
     
     k_boltzmann = 1.380649e-23  # J/K
     air_lay = p_lay*100 / (k_boltzmann * t_lay) * 1e-6  # Convert to molecules/cm^3
 
-    wv1abs = 762.0
-    wv2abs = 778.0
+    wv1abs = wv1abs
+    wv2abs = wv2abs
+    mean_wvl = 0.5 * (wv1abs + wv2abs)
     slit_wvl = np.arange(wv1abs, wv2abs+1e-7, 0.1)
     slit_response = np.ones_like(slit_wvl)
 
-    ssfr_slit_vis_file = "/Users/yuch8913/programming/er3t/er3t/er3t/data/slit/ssfr/vis_0.1nm_s.dat"
-    slit_data = sckd.read_dat(ssfr_slit_vis_file)
-    slit_response = np.interp(slit_wvl-770, slit_data[:, 0], slit_data[:, 1])
+    # ssfr_slit_vis_file = "/Users/yuch8913/programming/er3t/er3t/er3t/data/slit/ssfr/vis_0.1nm_s.dat"
+    # slit_data = sckd.read_dat(ssfr_slit_vis_file)
+    # slit_response = np.interp(slit_wvl-mean_wvl, slit_data[:, 0], slit_data[:, 1])
+    
+    xx = np.linspace(-12, 12, 241)
+    slit_data = gaussian(xx, 0, sig=sigma)
+    slit_response = np.interp(slit_wvl-mean_wvl, xx, slit_data)
 
     if 1:#not os.path.exists('tmp_abs.pkl'):
         nu_final, cont_tau_final, lbl_tau_final, \
@@ -147,6 +163,7 @@ def test_manual_pt_vmr():
                                                                                     x_vmr_o3=x_vmr_o3, 
                                                                                     x_vmr_ch4=x_vmr_ch4, 
                                                                                     x_vmr_no2=x_vmr_no2,
+                                                                                    x_vmr_n2o=x_vmr_n2o,
                                                                                     slit_wvl=slit_wvl, slit_response=slit_response,
                                                                                     radflag=True,
                                                                                     fname_solar="/Users/yuch8913/programming/er3t/er3t/er3t/data/solar/data/solar_flux/kurudz_full.dat"
@@ -276,4 +293,6 @@ if __name__ == "__main__":
     # main()
     
     # test_er3t_atm()
-    test_manual_pt_vmr()
+    test_manual_pt_vmr(wv1abs=762.0, wv2abs=778.0, sigma=3.82)
+    test_manual_pt_vmr(wv1abs=1600.0, wv2abs=2100.0, sigma=50)
+    test_manual_pt_vmr(wv1abs=1600.0, wv2abs=2100.0, sigma=200)

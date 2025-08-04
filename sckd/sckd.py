@@ -81,7 +81,7 @@ WK_CONST = 1.0e-20
 
 def abs_tau_calc(wv1abs, wv2abs, dvabs,
                  p_lay, t_lay, thickness_lay, air_lay,
-                 x_vmr_co2, x_vmr_n2, x_vmr_o2, x_vmr_h2o, x_vmr_o3, x_vmr_ch4, x_vmr_no2,
+                 x_vmr_co2, x_vmr_n2, x_vmr_o2, x_vmr_h2o, x_vmr_o3, x_vmr_ch4, x_vmr_no2, x_vmr_n2o,
                  slit_wvl, slit_response,
                  FRGNX=0, radflag=True, 
                  fname_solar="/Users/yuch8913/programming/er3t/er3t/er3t/data/solar/data/solar_flux/kurudz_full.dat"
@@ -120,6 +120,8 @@ def abs_tau_calc(wv1abs, wv2abs, dvabs,
         x_vmr_ch4 = np.array([x_vmr_ch4])
     if isinstance(x_vmr_no2, float):
         x_vmr_no2 = np.array([x_vmr_no2])
+    if isinstance(x_vmr_n2o, float):
+        x_vmr_n2o = np.array([x_vmr_n2o])
     
 
     
@@ -163,9 +165,9 @@ def abs_tau_calc(wv1abs, wv2abs, dvabs,
 
     nu_total, lambda_total, lbl_tau_final, \
     coef_h2o_final, coef_co2_final, coef_o3_final,\
-    coef_ch4_final, coef_o2_final, coef_no2_total = compute_lbl_profile(nu1abs, nu2abs, dvabs,
+    coef_ch4_final, coef_o2_final, coef_no2_total, coef_no2_total = compute_lbl_profile(nu1abs, nu2abs, dvabs,
                                                         p_lay, t_lay, thickness_lay, air_lay, 
-                                                        x_vmr_co2, x_vmr_o2, x_vmr_h2o, x_vmr_o3, x_vmr_ch4, x_vmr_no2)
+                                                        x_vmr_co2, x_vmr_o2, x_vmr_h2o, x_vmr_o3, x_vmr_ch4, x_vmr_no2, x_vmr_n2o)
     
     
     # print("lambda_total shape:", lambda_total.shape)
