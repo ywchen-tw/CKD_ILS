@@ -79,9 +79,13 @@ WK_CONST = 1.0e-20
 # WK_CONST = 1
 
 
-def abs_tau_calc(atm0, wv1abs, wv2abs, dvabs,
-         slit_wvl, slit_response,
-         FRGNX=0, radflag=True, ):
+def abs_tau_calc(wv1abs, wv2abs, dvabs,
+                 p_lay, t_lay, thickness_lay, air_lay,
+                 x_vmr_co2, x_vmr_n2, x_vmr_o2, x_vmr_h2o, x_vmr_o3, x_vmr_ch4, x_vmr_no2,
+                 slit_wvl, slit_response,
+                 FRGNX=0, radflag=True, 
+                 fname_solar="/Users/yuch8913/programming/er3t/er3t/er3t/data/solar/data/solar_flux/kurudz_full.dat"
+                 ):
     # Constants equivalent to the Fortran DATA statements
     P0 = 1013.0
     T0 = 296.0
@@ -90,22 +94,34 @@ def abs_tau_calc(atm0, wv1abs, wv2abs, dvabs,
     icflg = 0
     
     
-    p_lay = atm0.lay['pressure']['data']
-    t_lay = atm0.lay['temperature']['data']
-    thickness_lay = atm0.lay['thickness']['data']
+    if isinstance(p_lay, float):
+        p_lay = np.array([p_lay])
+        output = 'single layer'
+    elif isinstance(p_lay, list) or isinstance(p_lay, np.ndarray):
+        p_lay = np.array(p_lay)
+        output = 'multiple layers'
+    if isinstance(t_lay, float):
+        t_lay = np.array([t_lay])
+    if isinstance(thickness_lay, float):
+        thickness_lay = np.array([thickness_lay])
+    if isinstance(air_lay, float):
+        air_lay = np.array([air_lay])
+    if isinstance(x_vmr_co2, float):
+        x_vmr_co2 = np.array([x_vmr_co2])
+    if isinstance(x_vmr_n2, float):
+        x_vmr_n2 = np.array([x_vmr_n2])
+    if isinstance(x_vmr_o2, float):
+        x_vmr_o2 = np.array([x_vmr_o2])
+    if isinstance(x_vmr_h2o, float):
+        x_vmr_h2o = np.array([x_vmr_h2o])
+    if isinstance(x_vmr_o3, float):
+        x_vmr_o3 = np.array([x_vmr_o3])
+    if isinstance(x_vmr_ch4, float):
+        x_vmr_ch4 = np.array([x_vmr_ch4])
+    if isinstance(x_vmr_no2, float):
+        x_vmr_no2 = np.array([x_vmr_no2])
     
-    # 'air', 'o3', 'o2', 'h2o', 'co2', 'no2'
-    h2o_lay = atm0.lay['h2o']['data']
-    o3_lay = atm0.lay['o3']['data']
-    o2_lay = atm0.lay['o2']['data']
-    co2_lay = atm0.lay['co2']['data']
-    no2_lay = atm0.lay['no2']['data']
-    air_lay = atm0.lay['air']['data']
-    n2_lay = air_lay - h2o_lay - o2_lay - co2_lay - no2_lay
-    
-    
-    absrb = np.zeros_like(p_lay)
-    
+
     
     RHOAVE_lay = (p_lay/P0)*(T0/t_lay)
     XKT_lay = t_lay/RADCN2
@@ -117,12 +133,6 @@ def abs_tau_calc(atm0, wv1abs, wv2abs, dvabs,
     nuout_arr = np.arange(nu1abs, nu2abs + 1e-5, dvabs)
 
 
-    x_vmr_h2o = h2o_lay/air_lay
-    x_vmr_o2  = o2_lay/air_lay
-    x_vmr_n2  = n2_lay/air_lay
-    x_vmr_co2 = co2_lay/air_lay
-    x_vmr_no2 = no2_lay/air_lay
-    x_vmr_o3  = o3_lay/air_lay
     
     if icflg > 0:
         x_vmr_n2 = 0
@@ -143,22 +153,25 @@ def abs_tau_calc(atm0, wv1abs, wv2abs, dvabs,
 
     lambda_final = 1.0e7/nuout_arr
     
-    cont_tau_final_inter = np.zeros((atm0.lay['pressure']['data'].shape[0], nuout_arr.shape[0]))
-    for iz in range(atm0.lay['pressure']['data'].shape[0]):
+    nlay = p_lay.shape[0]
+    
+    cont_tau_final_inter = np.zeros((nlay, nuout_arr.shape[0]))
+    for iz in range(nlay):
         cont_tau_final_inter[iz, :] = linear_interp(nu_final, cont_tau_final[iz, :], nuout_arr)
     
-    print("lambda_final shape:", lambda_final.shape)
+    # print("lambda_final shape:", lambda_final.shape)
+
+    nu_total, lambda_total, lbl_tau_final, \
+    coef_h2o_final, coef_co2_final, coef_o3_final,\
+    coef_ch4_final, coef_o2_final, coef_no2_total = compute_lbl_profile(nu1abs, nu2abs, dvabs,
+                                                        p_lay, t_lay, thickness_lay, air_lay, 
+                                                        x_vmr_co2, x_vmr_o2, x_vmr_h2o, x_vmr_o3, x_vmr_ch4, x_vmr_no2)
     
-    # lbl_tau_final = np.zeros((atm0.lay['pressure']['data'].shape[0], lambda_final.shape[0]))
     
-    # return nu_final, abs_final, lbl_tau_final
+    # print("lambda_total shape:", lambda_total.shape)
     
-    nu_total, lambda_total, lbl_tau_final = compute_lbl_profile(wv1abs, wv2abs, dvabs, atm0)
-    
-    
-    print("lambda_total shape:", lambda_total.shape)
-    
-    fname_solar = "/Users/yuch8913/programming/er3t/er3t/er3t/data/solar/data/solar_flux/kurudz_full.dat"
+    if not os.path.exists(fname_solar):
+        raise FileNotFoundError(f"Solar data file not found: {fname_solar}")
     datContent = [i.strip().split() for i in open(fname_solar).readlines()]
     solar_data = np.array(datContent[11:]).astype(np.float32)
     
@@ -171,7 +184,7 @@ def abs_tau_calc(atm0, wv1abs, wv2abs, dvabs,
     
     tau_final = cont_tau_final_inter + lbl_tau_final
     
-    for iz in range(atm0.lay['pressure']['data'].shape[0]):
+    for iz in range(nlay):
         print("layer:", iz)
         print("  cont_tau_final_inter max, min:", cont_tau_final_inter[iz, :].max(), cont_tau_final_inter[iz, :].min())
         print("  lbl_tau_final max, min:", lbl_tau_final[iz, :].max(), lbl_tau_final[iz, :].min())
@@ -180,9 +193,11 @@ def abs_tau_calc(atm0, wv1abs, wv2abs, dvabs,
     
     # use surface layer
     ind_sort = np.argsort(tau_final[0, :]*slit_response_final)
-    solar_tau_sorted = solar_data_interpolate[ind_sort]
-    solar_tau_sorted /= 1000 
 
+    if output == 'single layer':
+        cont_tau_final_inter = cont_tau_final_inter[0, :]
+        lbl_tau_final = lbl_tau_final[0, :]
+        
 
     return nu_final, cont_tau_final_inter, lbl_tau_final, solar_data_interpolate, slit_response_final, ind_sort
 
@@ -203,6 +218,10 @@ def g_distribution(wvl, tau, solar_flux, ind_sort, g_num=16, weight=None):
     weight_cum = np.cumsum(weight)
     g = np.arange(wvl_num)/wvl_num
     
+    
+    
+    if tau.ndim == 1:
+        tau = tau[np.newaxis, :]
     tau_all_sorted = np.zeros_like(tau)
     
     ind_sort = np.argsort(tau[0, :])
@@ -223,14 +242,14 @@ def g_distribution(wvl, tau, solar_flux, ind_sort, g_num=16, weight=None):
     solar_flux_sorted = solar_flux[ind_sort]
     solar_flux_sorted /= 1000  # Convert to W/m^2/nm
     
-    plt.figure(figsize=(20, 9))
-    for iz in range(tau.shape[0]):
-        plt.plot(g, tau_all_sorted[iz, :], label=iz)
-    ymin, ymax = plt.ylim()
-    plt.vlines(weight_cum, ymin, ymax, linestyle='--', color='grey', )
-    plt.yscale('log')
-    plt.legend()
-    plt.show()
+    # plt.figure(figsize=(20, 9))
+    # for iz in range(tau.shape[0]):
+    #     plt.plot(g, tau_all_sorted[iz, :], label=iz)
+    # ymin, ymax = plt.ylim()
+    # plt.vlines(weight_cum, ymin, ymax, linestyle='--', color='grey', )
+    # plt.yscale('log')
+    # plt.legend()
+    # plt.show()
     
     tau_g_total = np.zeros((tau.shape[0], g_num))
     solar_g = np.zeros(g_num)
