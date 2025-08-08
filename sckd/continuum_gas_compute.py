@@ -145,6 +145,33 @@ def compute_continuum_profile(
     ABSRB_profile += C_h2o_continuum
 
 
+    # from matplotlib import pyplot as plt
+    # lambda_total = 1e7 / nu_list
+    # plt.plot(lambda_total, C_co2_all[0, :], 'b-', label='CO2 Continuum')
+    # plt.legend()
+    # plt.yscale('log')
+    # plt.show()
+    
+    # plt.plot(lambda_total, C_o3_all[0, :], 'r-', label='O3 Continuum')
+    # plt.legend()
+    # plt.yscale('log')
+    # plt.show()
+    
+    # plt.plot(lambda_total, C_o2_continuum[0, :], 'g-', label='O2 Continuum')
+    # plt.legend()
+    # plt.yscale('log')
+    # plt.show()
+    
+    # plt.plot(lambda_total, C_n2_continuum[0, :], 'c-', label='N2 Continuum')
+    # plt.legend()
+    # plt.yscale('log')
+    # plt.show()
+    
+    # plt.plot(lambda_total, C_h2o_continuum[0, :], 'c-', label='H2O Continuum')
+    # plt.legend()
+    # plt.yscale('log')
+    # plt.show()
+    # sys.exit()
 
     return nu_list, ABSRB_profile
 

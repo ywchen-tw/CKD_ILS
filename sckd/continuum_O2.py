@@ -715,17 +715,21 @@ def o2_continuum_profile(abs_v1, abs_v2, abs_dv,
             WO2 = WKO2_col*WK_CONST*((p_arr[i]/1013.)*(273./T_arr[i]))*XO2CN
             CHIO2 = xO2_arr[i]
             ADJ = CHIO2 * WO2
-            freq, C0, v1c, v2c, dvc, nptc_o2_vis = o2_vis(abs_v1, abs_v2)
+            freq, C0, V1C, V2C, DVC, NPTC_O2_vis = o2_vis(abs_v1, abs_v2)
             C = C0 * ADJ
             if JRAD==1:
                 C *= radfn_cal(freq,XKT_arr[i])
             
-            i_lo, i_hi, frac = pre_xint(
-                cont_v1=v1c, cont_v2=v2c, cont_dv=dvc, npt_cont=nptc_o2_vis,
-                abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
-            )
-            abs_array = np.zeros(npt_abs, dtype=float)
-            xint(cont_values=C, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            # i_lo, i_hi, frac = pre_xint(
+            #     cont_v1=V1C, cont_v2=V2C, cont_dv=DVC, npt_cont=NPTC_O2_vis,
+            #     abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
+            # )
+            # abs_array = np.zeros(npt_abs, dtype=float)
+            # xint(cont_values=C, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            
+            VC_grid = np.linspace(V1C, V2C, NPTC_O2_vis)
+            abs_grid = np.linspace(abs_v1, abs_v2, npt_abs)
+            abs_array = np.interp(abs_grid, VC_grid, C)
             
             C_o2_collision_all[i, :] = abs_array
 
@@ -735,17 +739,21 @@ def o2_continuum_profile(abs_v1, abs_v2, abs_dv,
             WKO2 = xO2_arr[i]*air_arr[i] # in moles/cm3
             WKO2_col = WKO2 * (thickness_arr[i]*1000*100) # in moles/cm2
             WO2 = WKO2_col * WK_CONST * XO2CN
-            freq, C0, v1c, v2c, dvc, nptc_o2_herz = o2_herz(abs_v1, abs_v2, T_arr[i], p_arr[i])
+            freq, C0, V1C, V2C, DVC, NPTC_O2_herz = o2_herz(abs_v1, abs_v2, T_arr[i], p_arr[i])
             C = C0 * WO2
             if JRAD==1:
                 C *= radfn_cal(freq,XKT_arr[i])
             
-            i_lo, i_hi, frac = pre_xint(
-                cont_v1=v1c, cont_v2=v2c, cont_dv=dvc, npt_cont=nptc_o2_herz,
-                abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
-            )
-            abs_array = np.zeros(npt_abs, dtype=float)
-            xint(cont_values=C, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            # i_lo, i_hi, frac = pre_xint(
+            #     cont_v1=V1C, cont_v2=V2C, cont_dv=DVC, npt_cont=NPTC_O2_herz,
+            #     abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
+            # )
+            # abs_array = np.zeros(npt_abs, dtype=float)
+            # xint(cont_values=C, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            
+            VC_grid = np.linspace(V1C, V2C, NPTC_O2_herz)
+            abs_grid = np.linspace(abs_v1, abs_v2, npt_abs)
+            abs_array = np.interp(abs_grid, VC_grid, C)
             
             C_o2_collision_all[i, :] = abs_array
 
@@ -755,17 +763,21 @@ def o2_continuum_profile(abs_v1, abs_v2, abs_dv,
             WKO2 = xO2_arr[i]*air_arr[i] # in moles/cm3
             WKO2_col = WKO2 * (thickness_arr[i]*1000*100) # in moles/cm2
             WO2 = WKO2_col * WK_CONST * XO2CN
-            freq, C0, v1c, v2c, dvc, nptc_o2_fuv = o2_fuv(abs_v1, abs_v2)
+            freq, C0, V1C, V2C, DVC, NPTC_O2_FUV = o2_fuv(abs_v1, abs_v2)
             C = C0 * WO2
             if JRAD==1:
                 C *= radfn_cal(freq,XKT_arr[i])
                 
-            i_lo, i_hi, frac = pre_xint(
-                cont_v1=v1c, cont_v2=v2c, cont_dv=dvc, npt_cont=nptc_o2_fuv,
-                abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
-            )
-            abs_array = np.zeros(npt_abs, dtype=float)
-            xint(cont_values=C, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            # i_lo, i_hi, frac = pre_xint(
+            #     cont_v1=v1c, cont_v2=v2c, cont_dv=dvc, npt_cont=NPTC_O2_FUV,
+            #     abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
+            # )
+            # abs_array = np.zeros(npt_abs, dtype=float)
+            # xint(cont_values=C, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            
+            VC_grid = np.linspace(V1C, V2C, NPTC_O2_FUV)
+            abs_grid = np.linspace(abs_v1, abs_v2, npt_abs)
+            abs_array = np.interp(abs_grid, VC_grid, C)
             
             C_o2_collision_all[i, :] = abs_array
 

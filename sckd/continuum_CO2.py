@@ -247,12 +247,16 @@ def compute_co2_continuum(abs_v1, abs_v2, abs_dv,
                 JRAD=JRAD
             )
 
-            i_lo, i_hi, frac = pre_xint(
-                cont_v1=V1C, cont_v2=V2C, cont_dv=DVC, npt_cont=NPTC,
-                abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
-            )
-            abs_array = np.zeros(npt_abs, dtype=float)
-            xint(cont_values=C_co2, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            # i_lo, i_hi, frac = pre_xint(
+            #     cont_v1=V1C, cont_v2=V2C, cont_dv=DVC, npt_cont=NPTC,
+            #     abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
+            # )
+            # abs_array = np.zeros(npt_abs, dtype=float)
+            # xint(cont_values=C_co2, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            
+            VC_grid = np.linspace(V1C, V2C, NPTC)
+            abs_grid = np.linspace(abs_v1, abs_v2, npt_abs)
+            abs_array = np.interp(abs_grid, VC_grid, C_co2)
 
         C_co2_all[i, :] = abs_array
 

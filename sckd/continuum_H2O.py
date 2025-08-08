@@ -226,64 +226,83 @@ def mt_ckd_h2o_absco(p_atm, t_atm, h2o_vmr, nu1abs, nu2abs, dvabs, FRGNX, radfla
     wvn = dat['wavenumber']
     dvc = wvn[1] - wvn[0]
     i = 0
-    while wvn[i] <= (nu1abs - 2 * dvc):
+    while i < len(wvn) and wvn[i] <= (nu1abs - 2 * dvc):
         i += 1
     i1 = max(i - 1, 0)
     while i < len(wvn) and wvn[i] < (nu2abs + 2 * dvc):
         i += 1
     i2 = i
     ncoeff = i2 - i1
-
-    # Define some atmospheric parameters
-    xkt = t_atm / RADCN2
-    # The continuum coefficients stored in the netCDF are valid for a reference density and must be 
-    # be scaled by this factor to accout for the given atmospheric density.
-    # ref_press (1013 mb) and ref_temp (296K) are read in from absco-ref_wv-mt-ckd.nc
-    rho_rat = (p_atm / dat['ref_press']) * (dat['ref_temp'] / t_atm)
-
-    # *****************
-    # Compute water vapor self continuum absorption coefficient.
-
-    # Apply temperature dependence to reference water vapor self continuum coefficients
-    # and scale to given density.
-    sh2o_coeff = dat['self_absco_ref'][i1:i2] * (dat['ref_temp'] / t_atm) ** dat['self_texp'][i1:i2]
-    print("max sh2o_coeff:", sh2o_coeff.max(), "min:", sh2o_coeff.min())
-    sh2o_coeff *= h2o_vmr * rho_rat
-    print("max sh2o_coeff after rho ajustment:", sh2o_coeff.max(), "min:", sh2o_coeff.min())
     
-    # Multiply by radiation term if requested
-    if radflag:
-        rad = myradfn_h2o(wvn[i1:i2], xkt, t_atm)
-        print("max rad:", rad.max(), "min:", rad.min())
-        # plt.plot(wvn[i1:i2], rad, label='Radiation Term')
-        # plt.xlabel('Wavenumber (cm⁻¹)')
-        # plt.ylabel('Radiation Correction Factor')
-        # plt.show()
-        sh2o_coeff *= rad
+    if ncoeff <= 1:
+        nuout_arr = np.arange(nu1abs, nu2abs + 1e-5, dvabs)
+        self_absco = np.zeros_like(nuout_arr)
+        for_absco = np.zeros_like(nuout_arr)
+        
+        return self_absco, for_absco, mt_version, None, nuout_arr
+    
     else:
-        rad = np.ones_like(sh2o_coeff)
-    # print("max sh2o_coeff after rad ajustment:", sh2o_coeff.max(), "min:", sh2o_coeff.min())
 
-    # Interpolate coefficients to output spectral grid.
-    nptabs = int((nu2abs - nu1abs) / dvabs + 1)
-    nuout_arr = np.arange(nu1abs, nu2abs + 1e-5, dvabs)
-    ist, lst = pre_xint_h2o(wvn[0], wvn[-1], nu1abs, dvabs, nptabs)
-    self_absco = xint_h2o(wvn[i1], wvn[i2 - 1], dvc, sh2o_coeff, 1.0, nu1abs, dvabs, nptabs, ist, lst)
+        # Define some atmospheric parameters
+        xkt = t_atm / RADCN2
+        # The continuum coefficients stored in the netCDF are valid for a reference density and must be 
+        # be scaled by this factor to accout for the given atmospheric density.
+        # ref_press (1013 mb) and ref_temp (296K) are read in from absco-ref_wv-mt-ckd.nc
+        rho_rat = (p_atm / dat['ref_press']) * (dat['ref_temp'] / t_atm)
 
-    # *****************
-    # Compute water vapor foreign continuum absorption coefficient.
-    fh2o_coeff = dat['for_absco_ref'][i1:i2] * (1 - h2o_vmr) * rho_rat
-    # print("max fh2o_coeff:", fh2o_coeff.max(), "min:", fh2o_coeff.min())
-    
-    # Multiply by radiation term if requested
-    if radflag:
-        fh2o_coeff *= rad
+        # *****************
+        # Compute water vapor self continuum absorption coefficient.
 
-    # Interpolate coefficients to output spectral grid.
-    for_absco = xint_h2o(wvn[i1], wvn[i2 - 1], dvc, fh2o_coeff, 1.0, nu1abs, dvabs, nptabs, ist, lst)
-    # *****************
-    
-    return self_absco, for_absco, mt_version, wvn[i1:i2], nuout_arr
+        # Apply temperature dependence to reference water vapor self continuum coefficients
+        # and scale to given density.
+        sh2o_coeff = dat['self_absco_ref'][i1:i2] * (dat['ref_temp'] / t_atm) ** dat['self_texp'][i1:i2]
+        print("max sh2o_coeff:", sh2o_coeff.max(), "min:", sh2o_coeff.min())
+        sh2o_coeff *= h2o_vmr * rho_rat
+        print("max sh2o_coeff after rho ajustment:", sh2o_coeff.max(), "min:", sh2o_coeff.min())
+        
+        # Multiply by radiation term if requested
+        if radflag:
+            rad = myradfn_h2o(wvn[i1:i2], xkt, t_atm)
+            print("max rad:", rad.max(), "min:", rad.min())
+            # plt.plot(wvn[i1:i2], rad, label='Radiation Term')
+            # plt.xlabel('Wavenumber (cm⁻¹)')
+            # plt.ylabel('Radiation Correction Factor')
+            # plt.show()
+            sh2o_coeff *= rad
+        else:
+            rad = np.zeros_like(sh2o_coeff)
+        # print("max sh2o_coeff after rad ajustment:", sh2o_coeff.max(), "min:", sh2o_coeff.min())
+
+        # Interpolate coefficients to output spectral grid.
+        # nptabs = int((nu2abs - nu1abs) / dvabs + 1)
+        nuout_arr = np.arange(nu1abs, nu2abs + 1e-5, dvabs)
+        # ist, lst = pre_xint_h2o(wvn[0], wvn[-1], nu1abs, dvabs, nptabs)
+        # self_absco = xint_h2o(wvn[i1], wvn[i2 - 1], dvc, sh2o_coeff, 1.0, nu1abs, dvabs, nptabs, ist, lst)
+
+        VC_grid = wvn[i1:i2]
+        abs_grid = np.arange(nu1abs, nu2abs + 1e-5, dvabs)
+        self_absco = np.interp(abs_grid, VC_grid, sh2o_coeff)
+        
+        # *****************
+        # Compute water vapor foreign continuum absorption coefficient.
+        fh2o_coeff = dat['for_absco_ref'][i1:i2] * (1 - h2o_vmr) * rho_rat
+        # print("max fh2o_coeff:", fh2o_coeff.max(), "min:", fh2o_coeff.min())
+        
+        # Multiply by radiation term if requested
+        if radflag:
+            fh2o_coeff *= rad
+
+        # Interpolate coefficients to output spectral grid.
+        # for_absco = xint_h2o(wvn[i1], wvn[i2 - 1], dvc, fh2o_coeff, 1.0, nu1abs, dvabs, nptabs, ist, lst)
+        
+        VC_grid = wvn[i1:i2]
+        abs_grid = np.arange(nu1abs, nu2abs + 1e-5, dvabs)
+        for_absco = np.interp(abs_grid, VC_grid, fh2o_coeff)
+        
+        
+        # *****************
+        
+        return self_absco, for_absco, mt_version, wvn[i1:i2], nuout_arr
 
 
 def compute_h2o_continuum(abs_v1, abs_v2, abs_dv,

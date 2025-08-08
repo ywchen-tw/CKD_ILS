@@ -484,24 +484,32 @@ def compute_o3_continuum(abs_v1, abs_v2, abs_dv,
     """
     nlev = p_arr.size
     npt_abs = int((abs_v2 - abs_v1) / abs_dv) + 1
+    abs_v1_extend = abs_v1 - abs_dv * 5
+    abs_v2_extend = abs_v2 + abs_dv * 5
+    npt_abs_extend = int((abs_v2_extend - abs_v1_extend) / abs_dv) + 1
     C_o3_diff_all = np.zeros((nlev, npt_abs), dtype=float)
 
 
     for i in range(nlev):
         V1C, V2C, DVC, NPTO3, C_O3_diff = o3_diffuse(
-            V1ABS=abs_v1, V2ABS=abs_v2, xo3cn=XO3CN,
+            V1ABS=abs_v1_extend, V2ABS=abs_v2_extend, xo3cn=XO3CN,
             tave=T_arr[i], thickness=thickness_arr[i],
             air=air_arr[i], xo3=xO3_arr[i],
             XKT=XKT_arr[i], RHOAVE=RHOAVE_arr[i],
             JRAD=JRAD
                     )
+        
         if C_O3_diff is not None:
-            i_lo, i_hi, frac = pre_xint(
-                cont_v1=V1C, cont_v2=V2C, cont_dv=DVC, npt_cont=NPTO3,
-                abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
-            )
-            abs_array = np.zeros(npt_abs, dtype=float)
-            xint(cont_values=C_O3_diff, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            # i_lo, i_hi, frac = pre_xint(
+            #     cont_v1=V1C, cont_v2=V2C, cont_dv=DVC, npt_cont=NPTO3,
+            #     abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
+            # )
+            # abs_array = np.zeros(npt_abs, dtype=float)
+            # xint(cont_values=C_O3_diff, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            
+            VC_grid = np.linspace(V1C, V2C, NPTO3)
+            abs_grid = np.linspace(abs_v1, abs_v2, npt_abs)
+            abs_array = np.interp(abs_grid, VC_grid, C_O3_diff)
 
         else:
             abs_array = np.zeros(npt_abs, dtype=float)

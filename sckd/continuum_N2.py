@@ -490,17 +490,21 @@ def compute_n2_continuum(abs_v1, abs_v2, abs_dv,
             WKN2 = xN2_arr[i] * air_arr[i] # in molec/cm3
             WKN2_col = WKN2 * thickness_arr[i] * 1000 * 100 # in molec/cm2
             tau_fac = XN2CN * (WKN2_col/XLOSMT) * amagat_arr[i]
-            freq, c0, c1, v1c, v2c, dvc, nptc_xn2_r = xn2_r(abs_v1, abs_v2, T_arr[i])
+            freq, c0, c1, V1C, V2C, DVC, NPTC_xn2_r = xn2_r(abs_v1, abs_v2, T_arr[i])
             C = tau_fac * c0 * (xN2_arr + c1*xO2_arr + 1*xH2O_arr)
             if JRAD == 1:
                 C *= radfn_cal(freq, XKT_arr[i])
             
-            i_lo, i_hi, frac = pre_xint(
-                cont_v1=v1c, cont_v2=v2c, cont_dv=dvc, npt_cont=nptc_xn2_r,
-                abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
-            )
-            abs_array = np.zeros(npt_abs, dtype=float)
-            xint(cont_values=C, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            # i_lo, i_hi, frac = pre_xint(
+            #     cont_v1=V1C, cont_v2=V2C, cont_dv=DVC, npt_cont=NPTC_xn2_r,
+            #     abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
+            # )
+            # abs_array = np.zeros(npt_abs, dtype=float)
+            # xint(cont_values=C, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            
+            VC_grid = np.linspace(V1C, V2C, NPTC_xn2_r)
+            abs_grid = np.linspace(abs_v1, abs_v2, npt_abs)
+            abs_array = np.interp(abs_grid, VC_grid, C)
             
             C_n2_continuum_all[i, :] = abs_array
 
@@ -510,17 +514,21 @@ def compute_n2_continuum(abs_v1, abs_v2, abs_dv,
             WKN2 = xN2_arr[i] * air_arr[i] # in molec/cm3
             WKN2_col = WKN2 * thickness_arr[i] * 1000 * 100 # in molec/cm2
             tau_fac = XN2CN * (WKN2_col/XLOSMT) * amagat_arr[i]
-            freq, cn0, cn1, cn2, v1c, v2c, dvc, nptc_n2_ver_1 = n2_ver_1(abs_v1, abs_v2, T_arr[i])
+            freq, cn0, cn1, cn2, V1C, V2C, DVC, NPTC_N2_ver_1 = n2_ver_1(abs_v1, abs_v2, T_arr[i])
             C = tau_fac * (xN2_arr*cn0 + xO2_arr*cn1 + xH2O_arr*cn2)
             if JRAD == 1:
                 C *= radfn_cal(freq, XKT_arr[i])
             
-            i_lo, i_hi, frac = pre_xint(
-                cont_v1=v1c, cont_v2=v2c, cont_dv=dvc, npt_cont=nptc_n2_ver_1,
-                abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
-            )
-            abs_array = np.zeros(npt_abs, dtype=float)
-            xint(cont_values=C, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            # i_lo, i_hi, frac = pre_xint(
+            #     cont_v1=V1C, cont_v2=V2C, cont_dv=DVC, npt_cont=NPTC_N2_ver_1,
+            #     abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
+            # )
+            # abs_array = np.zeros(npt_abs, dtype=float)
+            # xint(cont_values=C, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            
+            VC_grid = np.linspace(V1C, V2C, NPTC_N2_ver_1)
+            abs_grid = np.linspace(abs_v1, abs_v2, npt_abs)
+            abs_array = np.interp(abs_grid, VC_grid, C)
             
             C_n2_continuum_all[i, :] = abs_array
 
@@ -530,18 +538,22 @@ def compute_n2_continuum(abs_v1, abs_v2, abs_dv,
             WKN2 = xN2_arr[i] * air_arr[i] # in molec/cm3
             WKN2_col = WKN2 * thickness_arr[i] * 1000 * 100 # in molec/cm2
             tau_fac = XN2CN * (WKN2_col/XLOSMT) * amagat_arr[i] * \
-                    (xN2_arr + 1*xO2_arr + 1*xH2O_arr)
-            freq, c0, v1c, v2c, dvc, nptc_n2_overtone1 = n2_overtone1(abs_v1, abs_v2)
-            C = tau_fac * c0
+                    (xN2_arr[i] + 1*xO2_arr[i] + 1*xH2O_arr[i])
+            freq, C0, V1C, V2C, DVC, NPTC_N2_overtone1 = n2_overtone1(abs_v1, abs_v2)
+            C = tau_fac * C0
             if JRAD == 1:
                 C *= radfn_cal(freq, XKT_arr[i])
                 
-            i_lo, i_hi, frac = pre_xint(
-                cont_v1=v1c, cont_v2=v2c, cont_dv=dvc, npt_cont=nptc_n2_overtone1,
-                abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
-            )
-            abs_array = np.zeros(npt_abs, dtype=float)
-            xint(cont_values=C, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            # i_lo, i_hi, frac = pre_xint(
+            #     cont_v1=V1C, cont_v2=V2C, cont_dv=DVC, npt_cont=NPTC_N2_overtone1,
+            #     abs_v1=abs_v1, abs_v2=abs_v2, abs_dv=abs_dv, npt_abs=npt_abs
+            # )
+            # abs_array = np.zeros(npt_abs, dtype=float)
+            # xint(cont_values=C, i_lo=i_lo, i_hi=i_hi, frac=frac, abs_array=abs_array)
+            
+            VC_grid = np.linspace(V1C, V2C, NPTC_N2_overtone1)
+            abs_grid = np.linspace(abs_v1, abs_v2, npt_abs)
+            abs_array = np.interp(abs_grid, VC_grid, C)
             
             C_n2_continuum_all[i, :] = abs_array
 

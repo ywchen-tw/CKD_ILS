@@ -55,7 +55,32 @@ absorption_bands = [
     (1.e7/29000, 1.e7/22650, ["O3", "NO2"]), # 345 to 441 nm
     (1.e7/22650, 500.0, ["H2O", "NO2"]),
     (500.0, 620.0, ["H2O", "NO2"]),
-    (620.0, 625.0, ["O2", "NO2"]),
+    # (620.0, 625.0, ["O2", "NO2"]),
+    (620.0, 640.0, ["O2",]),
+    (640.0, 680.0, ["H2O", "O2"]),
+    (680.0, 700.0, ["O2",]),
+    (700.0, 750.0, ["H2O", "O2"]),
+    (750.0, 760.0, ["O2", ]),
+    (760.0, 770.0, ["H2O",  "O2"]),
+    (770.0, 780.0, ["O2", ]),
+    (780.0, 1240.0, ["H2O"]),         # includes wvl_join symbolically
+    (1240.0, 1300.0, ["O2", "CO2"]),
+    (1300.0, 1.e7/6150, ["H2O", "CO2"]), # 1300 to 1626 nm
+    (1.0e7/6150, 1.e7/5150, ["H2O", "CH4"]), # 1626 to 1942 nm
+    (1.e7/5150, 1.0e7/4650, ["H2O", "CO2"]), # 1942 to 2150 nm
+    (1.e7/4650, 1.0e7/4000, ["H2O", "CH4"]), # 2150 to 2500 nm
+    (1.e7/4000, 1.e7/3250, ["H2O", "CO2"]), # 2500 to 3077 nm
+    (1.e7/3250, 1.e7/2680, ["H2O", "CH4"]), # 3077 to 3731 nm
+    (1.e7/2680, 1.e7/820, ["H2O", "CO2", "CH4", "N2O", "O3"]), # 3731 to 12195 nm
+]
+
+absorption_bands = [
+    (1.e7/50000, 1.e7/38000, ["O3", "02"]), # 200 to 263 nm
+    (1.e7/38000, 1.e7/29000, ["O3"]), # 263 to 345 nm
+    (1.e7/29000, 1.e7/22650, ["O3"]), # 345 to 441 nm
+    (1.e7/22650, 500.0, ["H2O"]),
+    (500.0, 620.0, ["H2O",]),
+    # (620.0, 625.0, ["O2", "NO2"]),
     (620.0, 640.0, ["O2",]),
     (640.0, 680.0, ["H2O", "O2"]),
     (680.0, 700.0, ["O2",]),
@@ -187,7 +212,8 @@ def compute_lbl_profile(nu1abs, nu2abs, dvabs,
     if 'O2' in abs_gases:
         fetch_by_ids('O2', [36,37,38], nu_start_lbl, nu_end_lbl) # 16O2, 16O18O, 16O17O
     if 'NO2' in abs_gases:
-        fetch_by_ids('NO2', [44, 130], nu_start_lbl, nu_end_lbl) # 14N16O2, 15N16O2
+        # fetch_by_ids('NO2', [44, 130], nu_start_lbl, nu_end_lbl) # 14N16O2, 15N16O2
+        fetch_by_ids('NO2', [44], nu_start_lbl, nu_end_lbl) # 14N16O2
     if 'N2O' in abs_gases:
         fetch_by_ids('N2O', [21, 22, 23, 24, 25], nu_start_lbl, nu_end_lbl) # 14N216O, 14N15N16O, 15N114N16O, 14N218O, 14N217O
         
@@ -229,7 +255,7 @@ def compute_lbl_profile(nu1abs, nu2abs, dvabs,
         print(T_, P_)
         if 'H2O' in abs_gases:
             h2o_ = x_vmr_h2o[i] * air_molec_density
-            nu_, coef_h2o_ = absorptionCoefficient_Lorentz(SourceTables='H2O', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
+            nu_, coef_h2o_ = absorptionCoefficient_Voigt(SourceTables='H2O', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
             coef_h2o_total[i, :] = linear_interp(nu_, coef_h2o_, nu_list)
             tau_h2o_total[i, :] = coef_h2o_total[i, :]*(h2o_)*(thickness_lay[i]*1000*100)
             print("h2o number densisty:", h2o_)
@@ -241,42 +267,42 @@ def compute_lbl_profile(nu1abs, nu2abs, dvabs,
             print("tau_h2o_total max, min:", tau_h2o_total[i, :].max(), tau_h2o_total[i, :].min())
         if 'CO2' in abs_gases:
             co2_ = x_vmr_co2[i] * air_molec_density
-            nu_, coef_co2_ = absorptionCoefficient_Lorentz(SourceTables='CO2', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
+            nu_, coef_co2_ = absorptionCoefficient_Voigt(SourceTables='CO2', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
             coef_co2_total[i, :] = linear_interp(nu_, coef_co2_, nu_list)
             tau_co2_total[i, :] =  coef_co2_total[i, :]*(co2_)*(thickness_lay[i]*1000*100)
             print("tau_co2_total max, min:", tau_co2_total[i, :].max(), tau_co2_total[i, :].min())
         if 'O3' in abs_gases:
             o3_ = x_vmr_o3[i] * air_molec_density
-            nu_, coef_o3_ = absorptionCoefficient_Lorentz(SourceTables='O3', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
+            nu_, coef_o3_ = absorptionCoefficient_Voigt(SourceTables='O3', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
             coef_o3_total[i, :] = linear_interp(nu_, coef_o3_, nu_list)
             tau_o3_total[i, :] = coef_o3_total[i, :]*(o3_)*(thickness_lay[i]*1000*100)
             print("tau_o3_total max, min:", tau_o3_total[i, :].max(), tau_o3_total[i, :].min())
         if 'CH4' in abs_gases:
             ch4_ = x_vmr_ch4[i] * air_molec_density
-            nu_, coef_ch4_ = absorptionCoefficient_Lorentz(SourceTables='CH4', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
+            nu_, coef_ch4_ = absorptionCoefficient_Voigt(SourceTables='CH4', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
             coef_ch4_total[i, :] = linear_interp(nu_, coef_ch4_, nu_list)
             tau_ch4_total[i, :] = coef_ch4_total[i, :]*(ch4_)*(thickness_lay[i]*1000*100)
             print("tau_ch4_total max, min:", tau_ch4_total[i, :].max(), tau_ch4_total[i, :].min())
         if 'O2' in abs_gases:
             o2_ = x_vmr_o2[i] * air_molec_density
-            nu_, coef_o2_ = absorptionCoefficient_Lorentz(SourceTables='O2', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
+            nu_, coef_o2_ = absorptionCoefficient_Voigt(SourceTables='O2', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
             coef_o2_total[i, :] = linear_interp(nu_, coef_o2_, nu_list)
             tau_o2_total[i, :] = coef_o2_total[i, :]*(o2_)*(thickness_lay[i]*1000*100)
             print("tau_o2_total max, min:", tau_o2_total[i, :].max(), tau_o2_total[i, :].min())
         if 'NO2' in abs_gases:
             no2_ = x_vmr_no2[i] * air_molec_density
-            nu_, coef_no2_ = absorptionCoefficient_Lorentz(SourceTables='NO2', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
+            nu_, coef_no2_ = absorptionCoefficient_Voigt(SourceTables='NO2', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
             coef_no2_total[i, :] = linear_interp(nu_, coef_no2_, nu_list)
             tau_no2_total[i, :] = coef_no2_total[i, :]*(no2_)*(thickness_lay[i]*1000*100)
             print("tau_no2_total max, min:", tau_no2_total[i, :].max(), tau_no2_total[i, :].min())
         if 'N2O' in abs_gases:      
             n2o_ = x_vmr_n2o[i] * air_molec_density
-            nu_, coef_n2o_ = absorptionCoefficient_Lorentz(SourceTables='N2O', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
+            nu_, coef_n2o_ = absorptionCoefficient_Voigt(SourceTables='N2O', Diluent={'air':1.0}, Environment={'T':T_,'p':P_}, WavenumberStep=abs_dv)
             coef_n2o_total[i, :] = linear_interp(nu_, coef_n2o_, nu_list)
             tau_n2o_total[i, :] = coef_n2o_total[i, :]*(n2o_)*(thickness_lay[i]*1000*100)
             print("tau_n2o_total max, min:", tau_n2o_total[i, :].max(), tau_n2o_total[i, :].min())
         
-    #     _, coef_o3_ = absorptionCoefficient_Lorentz(SourceTables='O3', Diluent={'air':1.0}, Environment={'T':T_,'p':P_})
+    #     _, coef_o3_ = absorptionCoefficient_Voigt(SourceTables='O3', Diluent={'air':1.0}, Environment={'T':T_,'p':P_})
         lambda_total[i, :] = 10000/nu_list*1000 # in nm
         nu_total[i, :] = nu_list
         

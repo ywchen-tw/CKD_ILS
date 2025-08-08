@@ -12,6 +12,7 @@ Modified from:
 import os
 import sys
 import numpy as np
+import pandas as pd
 from scipy.interpolate import interp1d
 
 
@@ -200,6 +201,77 @@ def read_dat(fname):
         data.append([float(x) for x in line.split()])
     return np.array(data)
 
+
+
+def read_hitran_par(fname):
+    
+
+    # 1. Define column names in the order listed
+    col_names = [
+        "molec_id",
+        "local_iso_id",
+        "nu",
+        "sw",
+        "a",
+        "gamma_air",
+        "gamma_self",
+        "elower",
+        "n_air",
+        "delta_air",
+        "global_upper_quanta",
+        "global_lower_quanta",
+        "local_upper_quanta",
+        "local_lower_quanta",
+        "ierr",
+        "iref",
+        "line_mixing_flag",
+        "gp",
+        "gpp",
+    ]
+
+    # 2. Define field widths (characters) from the C-style format specifiers:
+    #    %2d → 2, %1d → 1, %12.6f → 12, %10.3e → 10, etc.
+    # col_widths = [2, 1, 12, 10, 10, 5, 5, 10, 4, 8, 15, 15, 15, 15, 1, 2, 1, 7, 7]
+    col_widths = [2, 1, 12, 10, 10, 5, 5, 10, 4, 8, 15, 15, 15, 15, 10, 6, 3, 7, 7]
+
+    # 3. Read the file
+    df = pd.read_fwf(
+        fname,
+        widths=col_widths,
+        names=col_names,
+        dtype={
+            "molec_id": int,            # HITRAN integer ID for this molecule in all its isotopologue forms
+            "local_iso_id": int,        # Integer ID of a particular Isotopologue, unique only to a given molecule, in order or abundance
+            "nu": float,                # Transition wavenumber
+            "sw": float,                # Line intensity, multiplied by isotopologue abundance, at T = 296 K
+            "a": float,                 # Einstein A-coefficient in s-1
+            "gamma_air": float,         # Air-broadened Lorentzian half-width at half-maximum at p = 1 atm and T = 296 K
+            "gamma_self": float,        # Self-broadened HWHM at 1 atm pressure and 296 K
+            "elower": float,            # Lower-state energy
+            "n_air": float,             # Temperature exponent for the air-broadened HWHM
+            "delta_air": float,         # Pressure shift induced by air, referred to p=1 atm
+            "ierr": str,                # Ordered list of indices corresponding to uncertainty estimates of transition parameters
+            "iref": str,                # Ordered list of reference identifiers for transition parameters
+            "line_mixing_flag": str,    # A flag indicating the presence of additional data and code relating to line-mixing
+            "gp": float,                # Upper state degeneracy
+            "gpp": float,               # Lower state degeneracy
+        },
+        comment="#",      # if there are comment lines
+        skip_blank_lines=True,
+    )
+
+    # 4. Strip whitespace from all string (quantum-number) columns
+    for col in [
+        "global_upper_quanta",          # Electronic and vibrational quantum numbers and labels for the upper state of a transition
+        "global_lower_quanta",          # Electronic and vibrational quantum numbers and labels for the lower state of a transition
+        "local_upper_quanta",           # Rotational, hyperfine and other quantum numbers and labels for the upper state of a transition
+        "local_lower_quanta",           # Rotational, hyperfine and other quantum numbers and labels for the lower state of a transition
+        "line_mixing_flag",             # A flag indicating the presence of additional data and code relating to line-mixing
+    ]:
+        df[col] = df[col].str.strip()
+
+    return df
+    
 
 
 if __name__ == '__main__':

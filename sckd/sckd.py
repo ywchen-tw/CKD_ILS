@@ -264,6 +264,286 @@ def g_distribution(wvl, tau, solar_flux, ind_sort, g_num=16, weight=None):
     return tau_g_total, solar_g, weight
 
 
+def compute_reference_tau_and_layer_ordinates(
+        wavelengths, tau_highres, delta_m, solar_flux, N=8, alpha=2.0, m=3):
+    """
+    Compute reference (mean-layer) correlated-tau ordinates using a single CDF
+    and return tau_ordinates for each layer. Supports 1D tau_highres (one layer)
+    or 2D tau_highres (multiple layers).
+
+    Parameters:
+        wavelengths (1D array): High-res wavelength grid (µm).
+        tau_highres (1D or 2D array): Optical depths τ(λ) or τ(λ, layer).
+        delta_m (float or 1D array): Path mass for each layer.
+        solar_flux (1D array): Solar spectral flux at each wavelength.
+        N (int): Number of g-ordinates.
+        alpha (float): Exponent for alternate mapping φ(g) = g^α/(g^α+(1−g)^α).
+
+    Returns:
+        tau_ordinates_layers (2D array): τ-values per layer (n_layers, N).
+        weights_ref (N-array): Fixed quadrature weights.
+        flux_ordinates (N-array): Solar flux corresponding to each g-ordinate.
+    """
+    # Ensure tau_highres is 2D array (n_wav, n_layers)
+    tau_arr = np.atleast_2d(tau_highres)
+    print("tau_highres shape:", tau_arr.shape)
+    print("tau_arr shape:", tau_arr.shape)
+    if tau_arr.shape[1] == len(wavelengths):
+        tau_arr = tau_arr.T
+    n_wav, n_layers = tau_arr.shape
+
+    # Ensure delta_m is 1D array of length n_layers
+    delta_arr = np.atleast_1d(delta_m)
+    if delta_arr.size == 1:
+        delta_arr = np.full(n_layers, delta_arr)
+
+    # 1. Compute reference optical depth: sum over layers (no solar weighting)
+    tau_ref = np.tensordot(tau_arr, delta_arr, axes=(1,0))  # shape (n_wav,)
+
+    # 2. Build reference CDF
+    sorted_idx = np.argsort(tau_ref)
+    tau_ref_sorted = tau_ref[sorted_idx]
+    flux_sorted = solar_flux[sorted_idx]
+    g_space = np.arange(len(tau_ref_sorted))/len(tau_ref_sorted) # normalize to [0,1]
+
+    # 3. Gaussian quadrature nodes & weights on [0,1]
+    x, w = np.polynomial.legendre.leggauss(N)
+    x_mapped = 0.5 * (x + 1)
+    w_mapped = 0.5 * w
+
+    # 4. Alternate mapping φ and φ'
+    def phi(g):
+        return (g**alpha) / (g**alpha + (1 - g)**alpha)
+
+    def phi_prime(g):
+        ga = g**alpha
+        one_ga = (1 - g)**alpha
+        num = alpha * g**(alpha - 1) * (ga + one_ga) - ga * alpha * (g**(alpha - 1) - (1 - g)**(alpha - 1))
+        den = (ga + one_ga)**2
+        return num / den
+
+    # 5. Remap nodes & adjust weights
+    g_mapped = phi(x_mapped)
+    weights_ref = w_mapped * phi_prime(x_mapped)
+    weights_ref /= np.sum(weights_ref)
+
+    # 6. Interpolate per-layer τ into g-space
+    
+    # m-point Simpson’s rule per bin
+    m = m  # Simpson needs odd number of points
+    # Precompute relative positions and Simpson weights on [0,1]
+    Epsilon = np.linspace(0, 1, m)                             # [0, 0.5, 1] for m=3
+    if m == 3:
+        W_simpson = np.array([1, 4, 1]) / (6/m)               # Simpson 1/3 weights sum to 1
+    elif m == 4:
+        W_simpson = np.array([1, 3, 3, 1]) / (8/m)            # Simpson 3/8 weights sum to 1 for m=4
+    elif m == 5:
+        W_simpson = np.array([1, 4, 6, 4, 1]) / (16/m)
+    elif m == 6:
+        W_simpson = np.array([1, 5, 10, 10, 5, 1]) / (32/m)
+    elif m == 7:
+        W_simpson = np.array([1, 6, 15, 20, 15, 6, 1]) / (64/m)
+    else:
+        raise ValueError(f"Unsupported m={m} for Simpson's rule. Use m=3, 4, 5, 6, or 7.")
+    Δg = np.empty(N+1)
+    # we need the bin edges g_edges; assuming g_mapped sorted ascending:
+    g_edges = np.zeros(N+1)
+    g_edges[1:-1] = 0.5*(g_mapped[:-1] + g_mapped[1:])    # midpoints between nodes
+    g_edges[ 0]   = 0.0
+    g_edges[-1]   = 1.0
+    
+    tau_ordinates_layers = np.zeros((n_layers, N))
+    for l in range(n_layers):
+        # tau_layer = tau_arr[:, l] * delta_arr[l]
+        tau_layer = tau_arr[:, l]# * delta_arr[l]
+        tau_sorted = tau_layer[sorted_idx]
+        tau_ordinates_layers[l, :] = np.interp(g_mapped, g_space, tau_sorted)
+        
+        # plt.plot(g_space, tau_sorted, label=f'Layer {l+1}')
+        # plt.plot(g_space, tau_ref[sorted_idx], 'k--', label='Reference τ')
+        # plt.scatter(g_mapped, tau_ordinates_layers[l, :], label=f'g-ordinates Layer {l+1}')
+        # plt.xlabel('g')
+        # plt.ylabel('Optical Depth')
+        # plt.yscale('log')
+        # plt.show()
+        
+        # allocate new array
+        tau_bin_means = np.zeros(N)
+        for i in range(N):
+            g0, g1 = g_edges[i], g_edges[i+1]
+            # map Simpson nodes into this bin
+            g_sub = g0 + Epsilon*(g1-g0)
+            # interpolate tau at these subpoints
+            tau_sub = np.interp(g_sub, g_space, tau_sorted)
+            # Simpson‐weighted mean
+            tau_bin_means[i] = np.dot(W_simpson, tau_sub)
+
+        tau_ordinates_layers[l, :] = tau_bin_means
+
+    # 7. Interpolate solar_flux into g-space (independent)
+    # flux_ordinates = np.interp(g_mapped, g_space, flux_sorted)
+    flux_ordinates = np.zeros(N)
+    
+    for i in range(N):
+        g0, g1 = g_edges[i], g_edges[i+1]
+        flux_ordinates[i] = np.mean(flux_sorted[np.logical_and(g_space >= g0, g_space < g1)])
+    
+    # for i in range(N):
+    #     g0, g1 = g_edges[i], g_edges[i+1]
+    #     # map Simpson nodes into this bin
+    #     g_sub = g0 + Epsilon*(g1-g0)
+    #     # interpolate solar flux at these subpoints
+    #     flux_sub = np.interp(g_sub, g_space, flux_sorted)
+    #     # Simpson‐weighted mean
+    #     flux_bin_means[i] = np.dot(W_simpson, flux_sub)
+    # flux_ordinates = flux_bin_means
+    
+    if n_layers == 1:
+        tau_ordinates_layers = tau_ordinates_layers.flatten()
+
+    return tau_ordinates_layers, flux_ordinates, weights_ref,
+
+
+def compute_ckd_tau_and_layer_ordinates(
+        wavelengths, tau_highres, solar_flux, N=8, alpha=2.0, m=3, layer_indices=0,):
+    """
+    Compute reference (mean-layer) correlated-tau ordinates using a single CDF
+    and return tau_ordinates for each layer. Supports 1D tau_highres (one layer)
+    or 2D tau_highres (multiple layers).
+
+    Parameters:
+        wavelengths (1D array): High-res wavelength grid (µm).
+        tau_highres (1D or 2D array): Optical depths τ(λ) or τ(λ, layer).
+        delta_m (float or 1D array): Path mass for each layer.
+        solar_flux (1D array): Solar spectral flux at each wavelength.
+        N (int): Number of g-ordinates.
+        alpha (float): Exponent for alternate mapping φ(g) = g^α/(g^α+(1−g)^α).
+        layer_indices (list or array): Indices of layers to compute ordinates for.
+
+    Returns:
+        tau_ordinates_layers (2D array): τ-values per layer (n_layers, N).
+        weights_ref (N-array): Fixed quadrature weights.
+        flux_ordinates (N-array): Solar flux corresponding to each g-ordinate.
+    """
+    # Ensure tau_highres is 2D array (n_wav, n_layers)
+    tau_arr = np.atleast_2d(tau_highres)
+    print("tau_highres shape:", tau_arr.shape)
+    print("tau_arr shape:", tau_arr.shape)
+    if tau_arr.shape[1] == len(wavelengths):
+        tau_arr = tau_arr.T
+    n_wav, n_layers = tau_arr.shape
+
+    if layer_indices > n_layers:
+        raise ValueError(f"layer_indices {layer_indices} exceeds number of layers {n_layers}")
+    # 1. Compute reference optical depth: sum over layers (no solar weighting)
+    tau_ref = tau_arr[:, layer_indices]
+
+    # 2. Build reference CDF
+    sorted_idx = np.argsort(tau_ref)
+    tau_ref_sorted = tau_ref[sorted_idx]
+    flux_sorted = solar_flux[sorted_idx]
+    g_space = np.arange(len(tau_ref_sorted))/len(tau_ref_sorted) # normalize to [0,1]
+
+    # 3. Gaussian quadrature nodes & weights on [0,1]
+    x, w = np.polynomial.legendre.leggauss(N)
+    x_mapped = 0.5 * (x + 1)
+    w_mapped = 0.5 * w
+
+    # 4. Alternate mapping φ and φ'
+    def phi(g):
+        return (g**alpha) / (g**alpha + (1 - g)**alpha)
+
+    def phi_prime(g):
+        ga = g**alpha
+        one_ga = (1 - g)**alpha
+        num = alpha * g**(alpha - 1) * (ga + one_ga) - ga * alpha * (g**(alpha - 1) - (1 - g)**(alpha - 1))
+        den = (ga + one_ga)**2
+        return num / den
+
+    # 5. Remap nodes & adjust weights
+    g_mapped = phi(x_mapped)
+    weights_ref = w_mapped * phi_prime(x_mapped)
+    weights_ref /= np.sum(weights_ref)
+
+    # 6. Interpolate per-layer τ into g-space
+    
+    # m-point Simpson’s rule per bin
+    m = m  # Simpson needs odd number of points
+    # Precompute relative positions and Simpson weights on [0,1]
+    Epsilon = np.linspace(0, 1, m)                             # [0, 0.5, 1] for m=3
+    if m == 3:
+        W_simpson = np.array([1, 4, 1]) / (6/m)               # Simpson 1/3 weights sum to 1
+    elif m == 4:
+        W_simpson = np.array([1, 3, 3, 1]) / (8/m)            # Simpson 3/8 weights sum to 1 for m=4
+    elif m == 5:
+        W_simpson = np.array([1, 4, 6, 4, 1]) / (16/m)
+    elif m == 6:
+        W_simpson = np.array([1, 5, 10, 10, 5, 1]) / (32/m)
+    elif m == 7:
+        W_simpson = np.array([1, 6, 15, 20, 15, 6, 1]) / (64/m)
+    else:
+        raise ValueError(f"Unsupported m={m} for Simpson's rule. Use m=3, 4, 5, 6, or 7.")
+    Δg = np.empty(N+1)
+    # we need the bin edges g_edges; assuming g_mapped sorted ascending:
+    g_edges = np.zeros(N+1)
+    g_edges[1:-1] = 0.5*(g_mapped[:-1] + g_mapped[1:])    # midpoints between nodes
+    g_edges[ 0]   = 0.0
+    g_edges[-1]   = 1.0
+    
+    
+    tau_ordinates_layers = np.zeros((n_layers, N))
+    for l in range(n_layers):
+        # tau_layer = tau_arr[:, l] * delta_arr[l]
+        tau_layer = tau_arr[:, l]# * delta_arr[l]
+        tau_sorted = tau_layer[sorted_idx]
+        tau_ordinates_layers[l, :] = np.interp(g_mapped, g_space, tau_sorted)
+        
+        # plt.plot(g_space, tau_sorted, label=f'Layer {l+1}')
+        # plt.plot(g_space, tau_ref[sorted_idx], 'k--', label='Reference τ')
+        # plt.scatter(g_mapped, tau_ordinates_layers[l, :], label=f'g-ordinates Layer {l+1}')
+        # plt.xlabel('g')
+        # plt.ylabel('Optical Depth')
+        # plt.yscale('log')
+        # plt.show()
+        
+        
+
+        # allocate new array
+        tau_bin_means = np.zeros(N)
+        for i in range(N):
+            g0, g1 = g_edges[i], g_edges[i+1]
+            # map Simpson nodes into this bin
+            g_sub = g0 + Epsilon*(g1-g0)
+            # interpolate tau at these subpoints
+            tau_sub = np.interp(g_sub, g_space, tau_sorted)
+            # Simpson‐weighted mean
+            tau_bin_means[i] = np.dot(W_simpson, tau_sub)
+
+        tau_ordinates_layers[l, :] = tau_bin_means
+
+    # 7. Interpolate solar_flux into g-space (independent)
+    # flux_ordinates = np.interp(g_mapped, g_space, flux_sorted)
+    flux_ordinates = np.zeros(N)
+    
+    for i in range(N):
+        g0, g1 = g_edges[i], g_edges[i+1]
+        flux_ordinates[i] = np.mean(flux_sorted[np.logical_and(g_space >= g0, g_space < g1)])
+    
+    # for i in range(N):
+    #     g0, g1 = g_edges[i], g_edges[i+1]
+    #     # map Simpson nodes into this bin
+    #     g_sub = g0 + Epsilon*(g1-g0)
+    #     # interpolate solar flux at these subpoints
+    #     flux_sub = np.interp(g_sub, g_space, flux_sorted)
+    #     # Simpson‐weighted mean
+    #     flux_bin_means[i] = np.dot(W_simpson, flux_sub)
+    # flux_ordinates = flux_bin_means
+    
+    if n_layers == 1:
+        tau_ordinates_layers = tau_ordinates_layers.flatten()
+
+    return tau_ordinates_layers, flux_ordinates, weights_ref,
+
 if __name__ == '__main__':
 
     pass
